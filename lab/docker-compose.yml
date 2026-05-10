@@ -1,0 +1,49 @@
+version: '3'
+
+services:
+  app:
+    image: budibase/budibase:3.33.3
+    ports:
+      - "10000:80"
+    environment:
+      - PORT=80
+      - API_URL=http://localhost:10000
+      - MINIO_URL=http://localhost:10000
+      - COUCH_DB_URL=http://couchdb:5984
+      - COUCH_DB_USER=budibase
+      - COUCH_DB_PASSWORD=budibase
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=budibase
+      - INTERNAL_API_KEY=budibase
+      - JWT_SECRET=budibase
+      - MINIO_ACCESS_KEY=budibase
+      - MINIO_SECRET_KEY=budibase
+      - POUCHDB_SYSTEM_USER=budibase
+      - POUCHDB_SYSTEM_PASSWORD=budibase
+      - LOG_LEVEL=info
+      - SELF_HOSTED=1
+    depends_on:
+      - couchdb
+      - redis
+
+  couchdb:
+    image: ibmcom/couchdb3:3.3.3
+    environment:
+      - COUCHDB_USER=budibase
+      - COUCHDB_PASSWORD=budibase
+    ports:
+      - "5984:5984"
+    volumes:
+      - couchdb3_data:/opt/couchdb/data
+
+  redis:
+    image: redis:6
+    command: redis-server --requirepass budibase
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  couchdb3_data:
+  redis_data:

